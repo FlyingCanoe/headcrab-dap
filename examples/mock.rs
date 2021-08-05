@@ -1,3 +1,5 @@
+use log::{error, info};
+
 fn init_logger() {
     use log4rs::append::file::FileAppender;
     use log4rs::config::{Appender, Config, Root};
@@ -21,7 +23,25 @@ fn init_logger() {
 }
 
 fn main() {
+    use std::io;
+
+    use headcrab_dap::header::Header;
+
+    let stdin = io::stdin();
+    let mut input = stdin.lock();
+
     init_logger();
-    log::info!("Hello, world!");
-    loop {}
+
+    loop {
+        match Header::read_from(&mut input) {
+            Ok(header) => {
+                info!("content-length={}", header.len);
+                info!("field={:?}", header.fields);
+            }
+            Err(error) => {
+                error!("error: {}", error);
+                break;
+            }
+        }
+    }
 }
