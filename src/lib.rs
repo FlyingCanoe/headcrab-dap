@@ -1,5 +1,15 @@
 use std::io::BufRead;
 
+mod event;
+
+pub struct Module {/* todo */}
+pub struct Breakpoint {/* todo */}
+pub struct InvalidatedAreas {/* todo */}
+
+pub struct Source {/* todo */}
+
+pub struct Capabilities {/* todo */}
+
 #[derive(Debug, Clone)]
 /// A dap message header.
 /// In the current, version of dap, a Header can only contain one field : `Content-Length`.
