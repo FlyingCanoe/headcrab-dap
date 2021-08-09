@@ -1,6 +1,7 @@
 use std::io::BufRead;
 
 mod event;
+mod request;
 
 pub struct Module {/* todo */}
 pub struct Breakpoint {/* todo */}
@@ -9,6 +10,26 @@ pub struct InvalidatedAreas {/* todo */}
 pub struct Source {/* todo */}
 
 pub struct Capabilities {/* todo */}
+
+pub struct SourceBreakpoint {/* todo */}
+
+pub struct FunctionBreakpoint {/* todo */}
+
+pub struct ExceptionFilterOptions {/* todo */}
+
+pub struct ExceptionOptions {/*todo */}
+
+pub struct DataBreakpoint {/* todo */}
+
+pub struct InstructionBreakpoint {/* todo */}
+
+pub struct SteppingGranularity {/* todo */}
+
+pub struct StepInArguments {/* todo */}
+
+pub struct StackFrameFormat {/* todo */}
+
+pub struct ValueFormat {/* todo */}
 
 #[derive(Debug, Clone)]
 /// A dap message header.
