@@ -111,6 +111,7 @@ pub struct Message {
     info: MessageInfo,
     #[doc(hidden)]
     pub raw_value: serde_json::Value,
+    message_kind: Option<Request>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -124,14 +125,22 @@ struct MessageInfo {
 
 impl Message {
     pub fn try_from_input<R: BufRead>(input: &mut R) -> Result<Self, Error> {
+        use serde_json::Value;
+
         let header = Header::from_input(input)?;
         let mut buffer = vec![0; header.content_length];
 
         input.read_exact(buffer.as_mut_slice())?;
-        let raw_value = serde_json::from_slice(buffer.as_slice())?;
-        let info = serde_json::from_slice(buffer.as_slice())?;
+        let raw_value: Value = serde_json::from_slice(buffer.as_slice())?;
+        let info: MessageInfo = serde_json::from_slice(buffer.as_slice())?;
 
-        Ok(Self { raw_value, info })
+        let message_kind = Request::new(info.message_type.as_str(), raw_value.clone());
+
+        Ok(Self {
+            raw_value,
+            info,
+            message_kind,
+        })
     }
 
     #[doc(hidden)]
@@ -142,6 +151,49 @@ impl Message {
     #[doc(hidden)]
     pub fn message_type(&self) -> &str {
         self.info.message_type.as_str()
+    }
+
+    pub fn message_kind(&self) -> Option<&Request> {
+        self.message_kind.as_ref()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Request {
+    request_info: RequestInfo,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct RequestInfo {
+    /**
+     * The command to execute.
+     */
+    command: String,
+
+    /**
+     * Object containing arguments for the command.
+     */
+    arguments: Option<serde_json::Value>,
+}
+
+impl Request {
+    fn new(message_type: &str, value: serde_json::Value) -> Option<Self> {
+        let info = serde_json::from_value(value);
+
+        match (message_type, info) {
+            ("request", Ok(request_info)) => Some(Self { request_info }),
+            _ => None,
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn command(&self) -> &str {
+        self.request_info.command.as_str()
+    }
+
+    #[doc(hidden)]
+    pub fn arguments(&self) -> Option<serde_json::Value> {
+        self.request_info.arguments.clone()
     }
 }
 

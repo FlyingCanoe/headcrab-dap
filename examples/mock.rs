@@ -35,8 +35,16 @@ fn main() {
         match Message::try_from_input(&mut input) {
             Ok(message) => {
                 info!("seq={}", message.seq());
-                info!("type={}", message.message_type());
-                info!("raw={:#}", message.raw_value)
+
+                if let Some(request) = message.message_kind() {
+                    info!("command={}", request.command());
+                    if let Some(args) = request.arguments() {
+                        info!("args={:#}", args)
+                    }
+                } else {
+                    info!("type={}", message.message_type());
+                    info!("raw={:#}", message.raw_value);
+                }
             }
             Err(error) => {
                 error!("error: {}", error);
