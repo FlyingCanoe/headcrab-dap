@@ -323,6 +323,7 @@ enum PathFormat {
 }
 
 #[cfg(test)]
+#[cfg(not(tarpaulin_include))]
 mod test {
     use super::*;
     use bstr::B;
