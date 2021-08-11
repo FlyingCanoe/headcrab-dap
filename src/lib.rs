@@ -1,6 +1,7 @@
 use std::io;
 use std::io::BufRead;
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -9,6 +10,8 @@ pub enum Error {
     Invalid,
     #[error("{0}")]
     Io(#[from] io::Error),
+    #[error("{0}")]
+    InvalidJson(#[from] serde_json::error::Error),
 }
 
 #[derive(Debug, Clone)]
@@ -100,6 +103,45 @@ impl HeaderField {
             }
             _ => Err(Error::Invalid),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Message {
+    info: MessageInfo,
+    #[doc(hidden)]
+    pub raw_value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct MessageInfo {
+    /// Sequence number (also known as message ID). For protocol messages of type
+    /// 'request' this ID can be used to cancel the request.
+    seq: u64,
+    #[serde(alias = "type")]
+    message_type: String,
+}
+
+impl Message {
+    pub fn try_from_input<R: BufRead>(input: &mut R) -> Result<Self, Error> {
+        let header = Header::from_input(input)?;
+        let mut buffer = vec![0; header.content_length];
+
+        input.read_exact(buffer.as_mut_slice())?;
+        let raw_value = serde_json::from_slice(buffer.as_slice())?;
+        let info = serde_json::from_slice(buffer.as_slice())?;
+
+        Ok(Self { raw_value, info })
+    }
+
+    #[doc(hidden)]
+    pub fn seq(&self) -> u64 {
+        self.info.seq
+    }
+
+    #[doc(hidden)]
+    pub fn message_type(&self) -> &str {
+        self.info.message_type.as_str()
     }
 }
 
@@ -215,5 +257,26 @@ mod test {
         );
         assert_eq!(header.fields.get(1), Some(&HeaderField::ContentLength(1)));
         assert_eq!(header.fields.get(2), None);
+    }
+
+    #[test]
+    fn message_from_input_valid() {
+        use serde_json::Value;
+
+        let body = r#"{
+            "seq": 1,
+            "type": "fake"
+          }"#;
+
+        let raw_message = format!("Content-Length:{}\r\n\r\n{}", body.as_bytes().len(), body);
+
+        let message = Message::try_from_input(&mut raw_message.as_bytes()).unwrap();
+
+        assert_eq!(message.seq(), 1);
+        assert_eq!(message.message_type(), "fake");
+        assert_eq!(
+            message.raw_value,
+            serde_json::from_str::<Value>(body).unwrap()
+        );
     }
 }

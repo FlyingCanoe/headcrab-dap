@@ -32,10 +32,11 @@ fn main() {
     init_logger();
 
     loop {
-        match Header::from_input(&mut input) {
-            Ok(header) => {
-                info!("content-length={}", header.content_length);
-                info!("field={:?}", header.fields);
+        match Message::try_from_input(&mut input) {
+            Ok(message) => {
+                info!("seq={}", message.seq());
+                info!("type={}", message.message_type());
+                info!("raw={:#}", message.raw_value)
             }
             Err(error) => {
                 error!("error: {}", error);
