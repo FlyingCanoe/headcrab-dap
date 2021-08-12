@@ -37,9 +37,13 @@ fn main() {
                 info!("seq={}", message.seq());
 
                 if let Some(request) = message.message_kind() {
-                    info!("command={}", request.command());
-                    if let Some(args) = request.arguments() {
-                        info!("args={:#}", args)
+                    if let Some(init) = request.request_kind() {
+                        info!("init={:#?}", init);
+                    } else {
+                        info!("command={}", request.command());
+                        if let Some(args) = request.arguments() {
+                            info!("args={:#}", args)
+                        }
                     }
                 } else {
                     info!("type={}", message.message_type());
