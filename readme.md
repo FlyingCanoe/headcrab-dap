@@ -1,5 +1,5 @@
 # `headcrab-dap`
 
-[![Coverage Status](https://coveralls.io/repos/github/FlyingCanoe/headcrab-dap/badge.svg?branch=master)](https://coveralls.io/github/FlyingCanoe/headcrab-dap?branch=master)
+[![codecov](https://codecov.io/gh/FlyingCanoe/headcrab-dap/branch/master/graph/badge.svg?token=Z3UOFC7ZLU)](https://codecov.io/gh/FlyingCanoe/headcrab-dap)
 
 headcrab-rs debug adapter protocol library
