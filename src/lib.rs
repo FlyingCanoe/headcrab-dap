@@ -111,7 +111,7 @@ pub struct Message {
     info: MessageInfo,
     #[doc(hidden)]
     pub raw_value: serde_json::Value,
-    message_kind: Option<Request>,
+    message_kind: Option<GenericRequest>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -134,7 +134,7 @@ impl Message {
         let raw_value: Value = serde_json::from_slice(buffer.as_slice())?;
         let info: MessageInfo = serde_json::from_slice(buffer.as_slice())?;
 
-        let message_kind = Request::new(info.message_type.as_str(), raw_value.clone());
+        let message_kind = GenericRequest::new(info.message_type.as_str(), raw_value.clone());
 
         Ok(Self {
             raw_value,
@@ -153,15 +153,15 @@ impl Message {
         self.info.message_type.as_str()
     }
 
-    pub fn message_kind(&self) -> Option<&Request> {
+    pub fn message_kind(&self) -> Option<&GenericRequest> {
         self.message_kind.as_ref()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Request {
+pub struct GenericRequest {
     request_info: RequestInfo,
-    request_kind: Option<InitializeRequest>,
+    request_kind: Option<Request>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -177,13 +177,13 @@ struct RequestInfo {
     arguments: Option<serde_json::Value>,
 }
 
-impl Request {
+impl GenericRequest {
     fn new(message_type: &str, value: serde_json::Value) -> Option<Self> {
         let info: Result<RequestInfo, _> = serde_json::from_value(value);
 
         match (message_type, info) {
             ("request", Ok(request_info)) => {
-                let request_kind = InitializeRequest::new(request_info.clone());
+                let request_kind = Request::new(&request_info);
                 Some(Self {
                     request_info,
                     request_kind,
@@ -203,10 +203,62 @@ impl Request {
         self.request_info.arguments.clone()
     }
 
-    pub fn request_kind(&self) -> Option<&InitializeRequest> {
+    pub fn request_kind(&self) -> Option<&Request> {
         self.request_kind.as_ref()
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum Request {
+    Initialize(InitializeRequest),
+    Disconnect(DisconnectRequest),
+}
+
+impl Request {
+    fn new(info: &RequestInfo) -> Option<Self> {
+        if let Some(kind) = InitializeRequest::new(info) {
+            Some(Self::Initialize(kind))
+        } else {
+            None
+        }
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Response {
+    respond_info: ResponseInfo,
+}
+
+/// Response for a request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ResponseInfo {
+    /// Sequence number of the corresponding request.
+    request_seq: usize,
+
+    /// Outcome of the request.
+    /// If true, the request was successful and the 'body' attribute may contain
+    /// the result of the request.
+    /// If the value is false, the attribute 'message' contains the error in short
+    /// form and the 'body' may contain additional information (see
+    /// 'ErrorResponse.body.error').
+    success: bool,
+
+    /// The command requested.
+    command: String,
+
+    /// Contains the raw error in short form if 'success' is false.
+    /// This raw error might be interpreted by the frontend and is not shown in the
+    /// UI.
+    /// Some predefined values exist.
+    /// Values:
+    /// 'cancelled': request was cancelled.
+    /// etc.
+    message: Option<String>,
+
+    /// Contains request result if success is true and optional error details if
+    /// success is false.
+    body: Option<serde_json::Value>,
+}
+
 /// The ‘initialize’ request is sent as the first request from the client to the debug adapter
 ///
 /// in order to configure it with client capabilities and to retrieve capabilities from the debug adapter.
@@ -222,8 +274,8 @@ pub struct InitializeRequest {
 }
 
 impl InitializeRequest {
-    fn new(info: RequestInfo) -> Option<Self> {
-        let arguments = serde_json::from_value(info.arguments?);
+    fn new(info: &RequestInfo) -> Option<Self> {
+        let arguments = serde_json::from_value(info.arguments.clone()?);
 
         match (info.command.as_str(), arguments) {
             ("initialize", Ok(arguments)) => Some(Self { arguments }),
@@ -313,6 +365,43 @@ struct InitializeRequestArguments {
      */
     #[serde(alias = "supportsInvalidatedEvent")]
     supports_invalidated_event: Option<bool>,
+}
+
+/// The ‘disconnect’ request is sent from the client to the debug adapter in order to stop debugging.
+/// It asks the debug adapter to disconnect from the debuggee and to terminate the debug adapter.
+/// If the debuggee has been started with the ‘launch’ request,
+/// the ‘disconnect’ request terminates the debuggee.
+/// If the ‘attach’ request was used to connect to the debuggee,
+/// ‘disconnect’ does not terminate the debuggee.
+/// This behavior can be controlled with the ‘terminateDebuggee’ argument
+/// (if supported by the debug adapter).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisconnectRequest {
+    arguments: Option<DisconnectArguments>,
+}
+
+/// Arguments for ‘disconnect’ request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DisconnectArguments {
+    /// A value of true indicates that this 'disconnect' request is part of a
+    /// restart sequence.
+    restart: Option<bool>,
+
+    /// Indicates whether the debuggee should be terminated when the debugger is
+    /// disconnected.
+    /// If unspecified, the debug adapter is free to do whatever it thinks is best.
+    /// The attribute is only honored by a debug adapter if the capability
+    /// 'supportTerminateDebuggee' is true.
+    #[serde(alias = "terminateDebuggee")]
+    terminate_debuggee: Option<bool>,
+
+    /// Indicates whether the debuggee should stay suspended when the debugger is
+    /// disconnected.
+    /// If unspecified, the debuggee should resume execution.
+    /// The attribute is only honored by a debug adapter if the capability
+    /// 'supportSuspendDebuggee' is true.
+    #[serde(alias = "suspendDebuggee")]
+    suspend_debuggee: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -37,12 +37,15 @@ fn main() {
                 info!("seq={}", message.seq());
 
                 if let Some(request) = message.message_kind() {
-                    if let Some(init) = request.request_kind() {
-                        info!("init={:#?}", init);
-                    } else {
-                        info!("command={}", request.command());
-                        if let Some(args) = request.arguments() {
-                            info!("args={:#}", args)
+                    match request.request_kind() {
+                        Some(Request::Initialize(init)) => {
+                            info!("init={:#?}", init);
+                        }
+                        _ => {
+                            info!("command={}", request.command());
+                            if let Some(args) = request.arguments() {
+                                info!("args={:#}", args)
+                            }
                         }
                     }
                 } else {
