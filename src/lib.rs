@@ -421,7 +421,6 @@ struct InitializeRequestArguments {
 
 #[derive(Debug, Clone)]
 pub struct InitializeResponse {
-    response: GenericResponse,
     info: InitializeResponseSerde,
 }
 
@@ -433,6 +432,35 @@ struct InitializeResponseSerde {
      * The capabilities of this debug adapter.
      */
     body: Option<dap_type::Capabilities>,
+}
+
+impl InitializeResponse {
+    pub fn new(
+        response_seq: usize,
+        request_seq: usize,
+        capability: Option<dap_type::Capabilities>,
+    ) -> Self {
+        use serde_json::to_value;
+
+        let protocol_message = GenericMessageSerde {
+            seq: response_seq,
+            message_type: "response".to_string(),
+        };
+
+        let response = ResponseSerde {
+            protocol_message,
+            request_seq,
+            success: true,
+            command: "initialize".to_string(),
+            message: None,
+            body: capability.clone().map_or(None, |cap| to_value(cap).ok()),
+        };
+        let body = capability;
+
+        let info = InitializeResponseSerde { response, body };
+
+        Self { info }
+    }
 }
 
 /// The ‘disconnect’ request is sent from the client to the debug adapter in order to stop debugging.
