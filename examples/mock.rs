@@ -1,3 +1,5 @@
+use std::io::StdoutLock;
+
 use headcrab_dap::*;
 use log::{error, info};
 
@@ -27,14 +29,17 @@ fn main() {
     use std::io;
 
     let stdin = io::stdin();
+    let stdout = io::stdout();
+
     let mut input = stdin.lock();
+    let mut output = stdout.lock();
 
     init_logger();
 
     loop {
         match Message::read_from(&mut input) {
             Ok(Message::Request(request)) => match request {
-                Request::Initialize(_) => info!("init"),
+                Request::Initialize(_) => respond_to_init(&mut output),
                 Request::Disconnect(_) => info!("disconnect"),
                 Request::Generic(request) => {
                     info!("command={}", request.command());
@@ -50,4 +55,10 @@ fn main() {
             }
         }
     }
+}
+
+fn respond_to_init(output: &mut StdoutLock) {
+    info!("init");
+    let response = InitializeResponse::new(1, 1, None);
+    response.send_to(output).unwrap();
 }

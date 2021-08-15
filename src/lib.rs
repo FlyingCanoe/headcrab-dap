@@ -54,6 +54,11 @@ impl Header {
 
         Header::from_raw_fields(fields).ok_or(Error::Invalid)
     }
+
+    fn new(len: usize) -> Self {
+        let fields = vec![HeaderField::ContentLength(len)];
+        Self::from_raw_fields(fields).expect("bug: this header should be valid")
+    }
 }
 
 impl Into<String> for Header {
@@ -460,6 +465,15 @@ impl InitializeResponse {
         let info = InitializeResponseSerde { response, body };
 
         Self { info }
+    }
+
+    pub fn send_to<W: io::Write>(self, output: &mut W) -> Result<(), Error> {
+        let body = serde_json::to_value(self.info)?.to_string();
+        let header: String = Header::new(body.len()).into();
+
+        output.write_all(header.as_bytes())?;
+        output.write_all(body.as_bytes())?;
+        Ok(())
     }
 }
 
