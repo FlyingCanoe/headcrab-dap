@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::io;
 use std::io::BufRead;
 
@@ -159,7 +159,7 @@ struct GenericMessageSerde {
 }
 
 pub enum Message {
-    Request(GenericRequest),
+    Request(Request),
     Generic(GenericMessage),
 }
 
@@ -195,13 +195,15 @@ impl GenericMessage {
 
 #[derive(Debug, Clone)]
 pub struct GenericRequest {
-    message: GenericMessage,
-    request_info: RequestInfo,
-    request_kind: Option<Request>,
+    serde: GenericRequestSerde,
+    value: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-struct RequestInfo {
+struct GenericRequestSerde {
+    //#[serde(flatten)]
+    //message: GenericMessageSerde,todo
+
     /**
      * The command to execute.
      */
@@ -214,32 +216,26 @@ struct RequestInfo {
 }
 
 impl GenericRequest {
-    fn new(message: GenericMessage) -> Result<Self, Error> {
-        let info: Result<RequestInfo, _> = serde_json::from_value(message.raw_value.clone());
-
-        match (message.info.message_type.as_str(), info) {
-            ("request", Ok(request_info)) => {
-                let request_kind = Request::new(&request_info);
-                Ok(Self {
-                    message,
-                    request_info,
-                    request_kind,
-                })
-            }
-            _ => Err(Error::Invalid),
-        }
+    fn new(value: serde_json::Value) -> Result<Self, Error> {
+        let serde = serde_json::from_value(value.clone())?;
+        Ok(Self { serde, value })
     }
 
     pub fn command(&self) -> &str {
-        self.request_info.command.as_str()
+        self.serde.command.as_str()
     }
 
     pub fn arguments(&self) -> Option<serde_json::Value> {
-        self.request_info.arguments.clone()
+        self.serde.arguments.clone()
     }
 
-    pub fn request_kind(&self) -> Option<&Request> {
-        self.request_kind.as_ref()
+    fn into_specialized(self) -> Result<Request, Error> {
+        let kind = match self.command() {
+            "initialize" => Request::Initialize(InitializeRequest::try_from(self.value)?),
+            "disconnect" => Request::Disconnect(DisconnectRequest::try_from(self.value)?),
+            _ => Request::Generic(self),
+        };
+        Ok(kind)
     }
 }
 
@@ -247,15 +243,15 @@ impl GenericRequest {
 pub enum Request {
     Initialize(InitializeRequest),
     Disconnect(DisconnectRequest),
+    Generic(GenericRequest),
 }
 
-impl Request {
-    fn new(info: &RequestInfo) -> Option<Self> {
-        if let Some(kind) = InitializeRequest::new(info) {
-            Some(Self::Initialize(kind))
-        } else {
-            None
-        }
+impl TryFrom<serde_json::Value> for Request {
+    type Error = Error;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Error> {
+        let generic = GenericRequest::new(value)?;
+        Ok(generic.into_specialized()?)
     }
 }
 
@@ -306,17 +302,26 @@ struct ResponseInfo {
 /// The ‘initialize’ request may only be sent once.
 #[derive(Debug, Clone)]
 pub struct InitializeRequest {
+    serde: InitializeRequestSerde,
+    value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitializeRequestSerde {
+    #[serde(flatten)]
+    request: GenericRequestSerde,
     arguments: InitializeRequestArguments,
 }
 
-impl InitializeRequest {
-    fn new(info: &RequestInfo) -> Option<Self> {
-        let arguments = serde_json::from_value(info.arguments.clone()?);
+impl TryFrom<serde_json::Value> for InitializeRequest {
+    type Error = Error;
 
-        match (info.command.as_str(), arguments) {
-            ("initialize", Ok(arguments)) => Some(Self { arguments }),
-            _ => None,
-        }
+    fn try_from(value: serde_json::Value) -> Result<Self, Error> {
+        let request = Self {
+            serde: serde_json::from_value(value.clone())?,
+            value,
+        };
+        Ok(request)
     }
 }
 
@@ -411,8 +416,16 @@ struct InitializeRequestArguments {
 /// ‘disconnect’ does not terminate the debuggee.
 /// This behavior can be controlled with the ‘terminateDebuggee’ argument
 /// (if supported by the debug adapter).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct DisconnectRequest {
+    serde: DisconnectRequestSerde,
+    value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DisconnectRequestSerde {
+    #[serde(flatten)]
+    request: GenericRequestSerde,
     arguments: Option<DisconnectArguments>,
 }
 
@@ -428,7 +441,7 @@ struct DisconnectArguments {
     /// If unspecified, the debug adapter is free to do whatever it thinks is best.
     /// The attribute is only honored by a debug adapter if the capability
     /// 'supportTerminateDebuggee' is true.
-    #[serde(alias = "terminateDebuggee")]
+    #[serde(rename = "terminateDebuggee")]
     terminate_debuggee: Option<bool>,
 
     /// Indicates whether the debuggee should stay suspended when the debugger is
@@ -436,8 +449,17 @@ struct DisconnectArguments {
     /// If unspecified, the debuggee should resume execution.
     /// The attribute is only honored by a debug adapter if the capability
     /// 'supportSuspendDebuggee' is true.
-    #[serde(alias = "suspendDebuggee")]
+    #[serde(rename = "suspendDebuggee")]
     suspend_debuggee: Option<bool>,
+}
+
+impl TryFrom<serde_json::Value> for DisconnectRequest {
+    type Error = Error;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Error> {
+        let serde = serde_json::from_value(value.clone())?;
+        Ok(Self { serde, value })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -33,11 +33,10 @@ fn main() {
 
     loop {
         match Message::read_from(&mut input) {
-            Ok(Message::Request(request)) => match request.request_kind() {
-                Some(Request::Initialize(_)) => {
-                    info!("init");
-                }
-                _ => {
+            Ok(Message::Request(request)) => match request {
+                Request::Initialize(_) => info!("init"),
+                Request::Disconnect(_) => info!("disconnect"),
+                Request::Generic(request) => {
                     info!("command={}", request.command());
                     if let Some(args) = request.arguments() {
                         info!("args={:#}", args)
