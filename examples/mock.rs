@@ -32,26 +32,19 @@ fn main() {
     init_logger();
 
     loop {
-        match Message::try_from_input(&mut input) {
-            Ok(message) => {
-                info!("seq={}", message.seq());
-
-                if let Some(request) = message.message_kind() {
-                    match request.request_kind() {
-                        Some(Request::Initialize(init)) => {
-                            info!("init={:#?}", init);
-                        }
-                        _ => {
-                            info!("command={}", request.command());
-                            if let Some(args) = request.arguments() {
-                                info!("args={:#}", args)
-                            }
-                        }
-                    }
-                } else {
-                    info!("type={}", message.message_type());
+        match Message::read_from(&mut input) {
+            Ok(Message::Request(request)) => match request.request_kind() {
+                Some(Request::Initialize(_)) => {
+                    info!("init");
                 }
-            }
+                _ => {
+                    info!("command={}", request.command());
+                    if let Some(args) = request.arguments() {
+                        info!("args={:#}", args)
+                    }
+                }
+            },
+            Ok(Message::Generic(message)) => info!("type={}", message.message_type()),
             Err(error) => {
                 error!("error: {}", error);
                 break;

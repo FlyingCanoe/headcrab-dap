@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::io;
 use std::io::BufRead;
 
@@ -50,6 +51,24 @@ impl Header {
         }
 
         Header::from_raw_fields(fields).ok_or(Error::Invalid)
+    }
+}
+
+impl Into<String> for Header {
+    fn into(self) -> String {
+        let mut output = String::new();
+        for field in self.fields {
+            let (name, value) = match field {
+                HeaderField::ContentLength(value) => {
+                    ("Content-Length".to_string(), format!("{}", value))
+                }
+                HeaderField::Other { name, value } => (name, value),
+            };
+
+            output.push_str(format!("{}:{}\r\n", name, value).as_str());
+        }
+        output.push_str("{}:{}\r\n");
+        output
     }
 }
 
@@ -106,15 +125,32 @@ impl HeaderField {
     }
 }
 
+impl GenericMessage {
+    pub fn seq(&self) -> u64 {
+        self.info.seq
+    }
+
+    pub fn message_type(&self) -> &str {
+        self.info.message_type.as_str()
+    }
+
+    fn into_specialize(self) -> Result<Message, Error> {
+        match self.info.message_type.as_str() {
+            "request" => todo!(),
+            "response" => todo!(),
+            _ => Ok(Message::Generic(self)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct Message {
-    info: MessageInfo,
+pub struct GenericMessage {
+    info: GenericMessageSerde,
     raw_value: serde_json::Value,
-    message_kind: Option<GenericRequest>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-struct MessageInfo {
+struct GenericMessageSerde {
     /// Sequence number (also known as message ID). For protocol messages of type
     /// 'request' this ID can be used to cancel the request.
     seq: u64,
@@ -122,8 +158,28 @@ struct MessageInfo {
     message_type: String,
 }
 
+pub enum Message {
+    Request(GenericRequest),
+    Generic(GenericMessage),
+}
+
 impl Message {
-    pub fn try_from_input<R: BufRead>(input: &mut R) -> Result<Self, Error> {
+    pub fn read_from<R: BufRead>(input: &mut R) -> Result<Self, Error> {
+        let generic = GenericMessage::from_input(input)?;
+        generic.into_specialize()
+    }
+}
+
+impl TryInto<String> for GenericMessage {
+    type Error = Error;
+
+    fn try_into(self) -> Result<String, Error> {
+        Ok(serde_json::to_string(&self.raw_value)?)
+    }
+}
+
+impl GenericMessage {
+    pub fn from_input<R: BufRead>(input: &mut R) -> Result<Self, Error> {
         use serde_json::Value;
 
         let header = Header::from_input(input)?;
@@ -131,34 +187,15 @@ impl Message {
 
         input.read_exact(buffer.as_mut_slice())?;
         let raw_value: Value = serde_json::from_slice(buffer.as_slice())?;
-        let info: MessageInfo = serde_json::from_slice(buffer.as_slice())?;
+        let info: GenericMessageSerde = serde_json::from_slice(buffer.as_slice())?;
 
-        let message_kind = GenericRequest::new(info.message_type.as_str(), raw_value.clone());
-
-        Ok(Self {
-            raw_value,
-            info,
-            message_kind,
-        })
-    }
-
-    #[doc(hidden)]
-    pub fn seq(&self) -> u64 {
-        self.info.seq
-    }
-
-    #[doc(hidden)]
-    pub fn message_type(&self) -> &str {
-        self.info.message_type.as_str()
-    }
-
-    pub fn message_kind(&self) -> Option<&GenericRequest> {
-        self.message_kind.as_ref()
+        Ok(Self { raw_value, info })
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct GenericRequest {
+    message: GenericMessage,
     request_info: RequestInfo,
     request_kind: Option<Request>,
 }
@@ -177,27 +214,26 @@ struct RequestInfo {
 }
 
 impl GenericRequest {
-    fn new(message_type: &str, value: serde_json::Value) -> Option<Self> {
-        let info: Result<RequestInfo, _> = serde_json::from_value(value);
+    fn new(message: GenericMessage) -> Result<Self, Error> {
+        let info: Result<RequestInfo, _> = serde_json::from_value(message.raw_value.clone());
 
-        match (message_type, info) {
+        match (message.info.message_type.as_str(), info) {
             ("request", Ok(request_info)) => {
                 let request_kind = Request::new(&request_info);
-                Some(Self {
+                Ok(Self {
+                    message,
                     request_info,
                     request_kind,
                 })
             }
-            _ => None,
+            _ => Err(Error::Invalid),
         }
     }
 
-    #[doc(hidden)]
     pub fn command(&self) -> &str {
         self.request_info.command.as_str()
     }
 
-    #[doc(hidden)]
     pub fn arguments(&self) -> Option<serde_json::Value> {
         self.request_info.arguments.clone()
     }
@@ -222,6 +258,7 @@ impl Request {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub struct Response {
     respond_info: ResponseInfo,
@@ -537,10 +574,10 @@ mod test {
 
         let raw_message = format!("Content-Length:{}\r\n\r\n{}", body.as_bytes().len(), body);
 
-        let message = Message::try_from_input(&mut raw_message.as_bytes()).unwrap();
+        let message = GenericMessage::from_input(&mut raw_message.as_bytes()).unwrap();
 
-        assert_eq!(message.seq(), 1);
-        assert_eq!(message.message_type(), "fake");
+        assert_eq!(message.info.seq, 1);
+        assert_eq!(message.info.message_type, "fake");
         assert_eq!(
             message.raw_value,
             serde_json::from_str::<Value>(body).unwrap()
