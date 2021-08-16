@@ -128,7 +128,7 @@ impl HeaderField {
 }
 
 impl GenericMessage {
-    pub fn seq(&self) -> u64 {
+    pub fn seq(&self) -> usize {
         self.info.seq
     }
 
@@ -155,7 +155,7 @@ pub struct GenericMessage {
 struct GenericMessageSerde {
     /// Sequence number (also known as message ID). For protocol messages of type
     /// 'request' this ID can be used to cancel the request.
-    seq: u64,
+    seq: usize,
     #[serde(rename = "type")]
     message_type: String,
 }
