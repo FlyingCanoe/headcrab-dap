@@ -50,7 +50,6 @@ fn main() {
                     }
                 } else {
                     info!("type={}", message.message_type());
-                    info!("raw={:#}", message.raw_value);
                 }
             }
             Err(error) => {

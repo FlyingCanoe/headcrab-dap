@@ -19,11 +19,11 @@ pub enum Error {
 /// In the current, version of dap, a Header can only contain one field : `Content-Length`.
 /// That being say, the standard was design to make it possible for a future version to add field.
 /// As such, This type support header which contain unknown fields.
-pub struct Header {
+struct Header {
     /// "The length of the content part in bytes"
-    pub content_length: usize,
+    content_length: usize,
     /// The list of the header field, both know and unknown.
-    pub fields: Vec<HeaderField>,
+    fields: Vec<HeaderField>,
 }
 
 impl Header {
@@ -41,7 +41,7 @@ impl Header {
         })
     }
 
-    pub fn from_input<R: BufRead>(input: &mut R) -> Result<Header, Error> {
+    fn from_input<R: BufRead>(input: &mut R) -> Result<Header, Error> {
         let mut fields = Vec::new();
 
         // a empty line signify the end of the header
@@ -56,7 +56,7 @@ impl Header {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 /// A dap message header field.
-pub enum HeaderField {
+enum HeaderField {
     /// "The length of the content part in bytes"
     ContentLength(usize),
     /// a unknown field
@@ -109,8 +109,7 @@ impl HeaderField {
 #[derive(Debug, Clone)]
 pub struct Message {
     info: MessageInfo,
-    #[doc(hidden)]
-    pub raw_value: serde_json::Value,
+    raw_value: serde_json::Value,
     message_kind: Option<GenericRequest>,
 }
 
