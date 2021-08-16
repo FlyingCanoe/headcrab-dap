@@ -119,7 +119,7 @@ struct MessageInfo {
     /// Sequence number (also known as message ID). For protocol messages of type
     /// 'request' this ID can be used to cancel the request.
     seq: u64,
-    #[serde(alias = "type")]
+    #[serde(rename = "type")]
     message_type: String,
 }
 
