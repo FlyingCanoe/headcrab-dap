@@ -183,9 +183,11 @@ impl Request {
 
         match (message_type, info) {
             ("request", Ok(request_info)) => {
-                let request_kind =
-                    InitializeRequest::new(request_info.clone());
-                Some(Self { request_info, request_kind })
+                let request_kind = InitializeRequest::new(request_info.clone());
+                Some(Self {
+                    request_info,
+                    request_kind,
+                })
             }
             _ => None,
         }
@@ -235,19 +237,19 @@ struct InitializeRequestArguments {
     /**
      * The ID of the (frontend) client using this adapter.
      */
-     #[serde(alias="clientID")]
+    #[serde(alias = "clientID")]
     client_id: Option<String>,
 
     /**
      * The human readable name of the (frontend) client using this adapter.
      */
-     #[serde(alias="clientName")]
+    #[serde(alias = "clientName")]
     client_name: Option<String>,
 
     /**
      * The ID of the debug adapter.
      */
-     #[serde(alias="adapterID")]
+    #[serde(alias = "adapterID")]
     adapter_id: String,
 
     /**
@@ -259,13 +261,13 @@ struct InitializeRequestArguments {
     /**
      * If true all line numbers are 1-based (default).
      */
-     #[serde(alias="linesStartAt1")]
-     lines_start_at1: Option<bool>,
+    #[serde(alias = "linesStartAt1")]
+    lines_start_at1: Option<bool>,
 
     /**
      * If true all column numbers are 1-based (default).
      */
-     #[serde(alias="columnStartAt1")]
+    #[serde(alias = "columnStartAt1")]
     columns_start_at1: Option<bool>,
 
     /**
@@ -273,43 +275,43 @@ struct InitializeRequestArguments {
      * is the native format.
      * Values: 'path', 'uri', etc.
      */
-     #[serde(alias="pathFormat")]
+    #[serde(alias = "pathFormat")]
     path_format: Option<PathFormat>,
 
     /**
      * Client supports the optional type attribute for variables.
      */
-     #[serde(alias="supportsVariableType")]
+    #[serde(alias = "supportsVariableType")]
     supports_variable_type: Option<bool>,
 
     /**
      * Client supports the paging of variables.
      */
-     #[serde(alias="supportVariablePaging")]
+    #[serde(alias = "supportVariablePaging")]
     supports_variable_paging: Option<bool>,
 
     /**
      * Client supports the runInTerminal request.
      */
-     #[serde(alias="supportsRunInTerminalRequest")]
+    #[serde(alias = "supportsRunInTerminalRequest")]
     supports_run_in_terminal_request: Option<bool>,
 
     /**
      * Client supports memory references.
      */
-     #[serde(alias="supportsMemoryReferences")]
+    #[serde(alias = "supportsMemoryReferences")]
     supports_memory_references: Option<bool>,
 
     /**
      * Client supports progress reporting.
      */
-     #[serde(alias="supportsProgressReporting")]
+    #[serde(alias = "supportsProgressReporting")]
     supports_progress_reporting: Option<bool>,
 
     /**
      * Client supports the invalidated event.
      */
-     #[serde(alias="supportsInvalidatedEvent")]
+    #[serde(alias = "supportsInvalidatedEvent")]
     supports_invalidated_event: Option<bool>,
 }
 
