@@ -5,6 +5,8 @@ use std::io::BufRead;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod dap_type;
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("invalid input")]
@@ -255,14 +257,23 @@ impl TryFrom<serde_json::Value> for Request {
     }
 }
 
+pub enum Response {
+    Generic(GenericResponse),
+    Initialize(InitializeResponse),
+}
+
 #[derive(Debug, Clone)]
-pub struct Response {
-    respond_info: ResponseInfo,
+pub struct GenericResponse {
+    serde: ResponseSerde,
+    value: serde_json::Value,
 }
 
 /// Response for a request
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ResponseInfo {
+struct ResponseSerde {
+    #[serde(flatten)]
+    protocol_message: GenericMessageSerde,
+
     /// Sequence number of the corresponding request.
     request_seq: usize,
 
@@ -408,6 +419,22 @@ struct InitializeRequestArguments {
     supports_invalidated_event: Option<bool>,
 }
 
+#[derive(Debug, Clone)]
+pub struct InitializeResponse {
+    response: GenericResponse,
+    info: InitializeResponseSerde,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct InitializeResponseSerde {
+    #[serde(flatten)]
+    response: ResponseSerde,
+    /**
+     * The capabilities of this debug adapter.
+     */
+    body: Option<dap_type::Capabilities>,
+}
+
 /// The ‘disconnect’ request is sent from the client to the debug adapter in order to stop debugging.
 /// It asks the debug adapter to disconnect from the debuggee and to terminate the debug adapter.
 /// If the debuggee has been started with the ‘launch’ request,
@@ -460,6 +487,14 @@ impl TryFrom<serde_json::Value> for DisconnectRequest {
         let serde = serde_json::from_value(value.clone())?;
         Ok(Self { serde, value })
     }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct InitializeResponseInfo {
+    /**
+     * The capabilities of this debug adapter.
+     */
+    body: Option<dap_type::Capabilities>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -624,7 +659,7 @@ mod test {
             "supportsVariableType": true
           }"#;
 
-          let r: Result<InitializeRequestArguments, _> = serde_json::from_str(arg);
-          dbg!(r).unwrap();
+        let r: Result<InitializeRequestArguments, _> = serde_json::from_str(arg);
+        dbg!(r).unwrap();
     }
 }
