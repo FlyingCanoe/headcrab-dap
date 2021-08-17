@@ -1,4 +1,8 @@
+use std::io;
+
 use log::{error, info};
+
+use headcrab_dap::header::Header;
 
 fn init_logger() {
     use log4rs::append::file::FileAppender;
@@ -23,10 +27,6 @@ fn init_logger() {
 }
 
 fn main() {
-    use std::io;
-
-    use headcrab_dap::header::Header;
-
     let stdin = io::stdin();
     let mut input = stdin.lock();
 
