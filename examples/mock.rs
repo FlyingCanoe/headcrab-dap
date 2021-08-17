@@ -32,10 +32,15 @@ fn main() {
     init_logger();
 
     loop {
-        match Header::read_from(&mut input) {
-            Ok(header) => {
-                info!("content-length={}", header.content_length);
-                info!("field={:?}", header.fields);
+        match Message::read_from(&mut input) {
+            Ok(msg) => {
+                info!("seq={}", msg.seq());
+                match msg {
+                    Message::Generic(msg) => {
+                        info!("generic msg");
+                        info!("msg type={}", msg.message_type());
+                    }
+                }
             }
             Err(error) => {
                 error!("error: {}", error);

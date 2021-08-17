@@ -37,11 +37,22 @@ impl Header {
         Header::from_raw_fields(fields).ok_or(Error::Invalid)
     }
 
-    fn new(len: usize) -> Self {
+    pub(crate) fn new(len: usize) -> Self {
         Self {
             len,
             fields: vec![HeaderField::Len(len)],
         }
+    }
+
+    pub(crate) fn into_string(self) -> String {
+        let mut output = String::new();
+        let iter = self.fields.iter().map(|field| match field {
+            HeaderField::Len(value) => format!("Content-Length: {}\r\n", value),
+            HeaderField::Other { name, value } => format!("{}: {}\r\n", name, value),
+        });
+        output.extend(iter);
+        output.push_str("\r\n");
+        output
     }
 }
 
