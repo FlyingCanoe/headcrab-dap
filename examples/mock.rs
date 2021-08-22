@@ -1,8 +1,6 @@
-use std::io;
-
 use log::{error, info};
 
-use headcrab_dap::header::Header;
+use headcrab_dap::adapter::Adapter;
 
 fn init_logger() {
     use log4rs::append::file::FileAppender;
@@ -27,17 +25,20 @@ fn init_logger() {
 }
 
 fn main() {
-    let stdin = io::stdin();
-    let mut input = stdin.lock();
+    let adapter = Adapter::single_session_mode();
 
     init_logger();
 
-    loop {
-        match Header::read_from(&mut input) {
-            Ok(header) => {
-                info!("content-length={}", header.len);
-                info!("field={:?}", header.fields);
-            }
+    for msg in adapter {
+        match msg {
+            Ok(msg) => match msg {
+                headcrab_dap::dap_type::Message::Request(request) => {
+                    info!("request");
+                    info!("raw={:#?}", request)
+                }
+                headcrab_dap::dap_type::Message::Event(_) => todo!(),
+                headcrab_dap::dap_type::Message::Response(_) => todo!(),
+            },
             Err(error) => {
                 error!("error: {}", error);
                 break;

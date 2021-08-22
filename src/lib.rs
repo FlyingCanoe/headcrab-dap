@@ -3,6 +3,7 @@ use std::io;
 
 use serde_json as json;
 
+pub mod adapter;
 pub mod dap_type;
 pub mod header;
 
